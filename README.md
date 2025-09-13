@@ -6,7 +6,7 @@
 
 **🐒CSDN项目地址**：[利用Request通过bv号爬取B站指定视频下所有评论（IP地址、大会员、等级、一二级评论等等)，附带源码和教程](https://blog.csdn.net/onedyer/article/details/146535940?spm=1011.2124.3001.6209)
 
-**🐼博客教程地址**：[B站评论爬取(IP地址、内容、大会员、性别等等)教程 ](https://blog.ldyer.top/2025/03/26/B%E7%AB%99%E8%AF%84%E8%AE%BA%E7%88%AC%E5%8F%96/)
+**🐼博客教程地址**：[B站评论爬取(IP地址、内容、大会员、性别等等)教程 ](https://ldyer.top/2025/03/26/B%E7%AB%99%E8%AF%84%E8%AE%BA%E7%88%AC%E5%8F%96/)
 
 </font>
 
