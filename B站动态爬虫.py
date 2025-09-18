@@ -197,7 +197,7 @@ def start(opus, oid, pageID, count, csv_writer, is_second):
 
 if __name__ == "__main__":
 
-    # 获取视频opus
+    # 动态的opus
     # 比如动态链接为https://www.bilibili.com/opus/1113811489474478100，则opus为1113811489474478100
     opus = "1113811489474478100"
 
