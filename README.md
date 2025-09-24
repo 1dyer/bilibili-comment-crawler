@@ -1,4 +1,7 @@
+# 提示
 **🚧🚧近期B站对爬取速度进行了更深一步的限制，如果你需要的仅仅只是评论数据而不是代码，可以用本人最新发布的[【Edge扩展发布】一键导出B站评论区所有评论](https://github.com/1dyer/bilibili-comments-extension),直接利用浏览器插件对数据进行爬取，不需要任何编程环境就能爬取B站评论，而且还可以极大程度避免反爬机制的干扰（毕竟是直接运行在浏览器环境上）🚧🚧**
+扩展的演示效果如下：
+![](https://github.com/1dyer/bilibili-comments-extension/blob/main/image/image.webp)
 
 # 前言🐈
 <font size=4 color=black>用于爬取Bilibili（B站）视频评论的爬虫，支持爬取一级评论及二级回复，并将数据导出为CSV文件。通过输入视频的BV号，脚本会自动获取视频信息并抓取相关评论，包含用户基本信息、评论内容、IP属地、头像、会员、等级等字段。🦄🦄
