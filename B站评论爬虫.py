@@ -19,16 +19,32 @@ def get_Header():
     return header
 
 # 通过bv号，获取视频的oid
-def get_information(bv):
-    resp = requests.get(f"https://www.bilibili.com/video/{bv}/?p=14&spm_id_from=pageDriver&vd_source=cd6ee6b033cd2da64359bad72619ca8a",headers=get_Header())
-    # 提取视频oid
-    obj = re.compile(f'"aid":(?P<id>.*?),"bvid":"{bv}"')
-    oid = obj.search(resp.text).group('id')
+def get_information(bv,flag):
+    # 如果是视频 
+    if flag == 1:
+        resp = requests.get(f"https://www.bilibili.com/video/{bv}/?p=14&spm_id_from=pageDriver&vd_source=cd6ee6b033cd2da64359bad72619ca8a",headers=get_Header())
+    # 如果是番剧
+    elif flag == 2:
+        resp = requests.get(f"https://www.bilibili.com/bangumi/play/{bv}",headers=get_Header())
+    # 如果是动态
+    elif flag == 3:
+        resp = requests.get(f"https://www.bilibili.com/opus/{bv}",headers=get_Header())
 
-    # 提取视频的标题
-    obj = re.compile(r'<title data-vue-meta="true">(?P<title>.*?)</title>')
+    if flag == 1:
+    # 提取视频oid
+        obj = re.compile(f'"aid":(?P<id>.*?),"bvid":"{bv}"')
+        oid = obj.search(resp.text).group('id')
+    elif flag == 2:
+    # 番剧的oid
+        oid = re.findall(r'aid":(.+?),',resp.text)[0]
+
+    elif flag == 3:
+    # 动态的oid
+        oid = re.findall(r'"rid_str":"(.+?)"',resp.text)[0]
+
+    # 提取标题
     try:
-        title = obj.search(resp.text).group('title')
+        title = re.findall(r'<title>(.+?)</title>',resp.text)[0]
     except:
         title = "未识别"
 
@@ -42,12 +58,17 @@ def md5(code):
     return w_rid
 
 # 轮页爬取
-def start(bv, oid, pageID, count, csv_writer, is_second):
+def start(bv, oid, pageID, count, csv_writer, is_second, flag):
     # 参数
     mode = 2   # 为2时爬取的是最新评论，为3时爬取的是热门评论
     plat = 1
     type = 1  
     web_location = 1315875
+
+    # 如果是动态页
+    if flag == 3:
+        mode = 3
+        type = 11
 
     # 获取当下时间戳
     wts = int(time.time())
@@ -119,7 +140,7 @@ def start(bv, oid, pageID, count, csv_writer, is_second):
             sign = reply['member']['sign']
         except:
             sign = ''
-
+        print(reply_time,context)
         # 写入CSV文件
         csv_writer.writerow([count, parent, rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar])
 
@@ -129,54 +150,56 @@ def start(bv, oid, pageID, count, csv_writer, is_second):
                 second_url=f"https://api.bilibili.com/x/v2/reply/reply?oid={oid}&type=1&root={rpid}&ps=10&pn={page}&web_location=333.788"
                 second_comment=requests.get(url=second_url,headers=get_Header()).content.decode('utf-8')
                 second_comment=json.loads(second_comment)
-                for second in second_comment['data']['replies']:
-                    # 评论数量+1
-                    count += 1
-                    # 上级评论ID
-                    parent=second["parent"]
-                    # 评论ID
-                    second_rpid = second["rpid"]
-                    # 用户ID
-                    uid = second["mid"]
-                    # 用户名
-                    name = second["member"]["uname"]
-                    # 用户等级
-                    level = second["member"]["level_info"]["current_level"]
-                    # 性别
-                    sex = second["member"]["sex"]
-                    # 头像
-                    avatar = second["member"]["avatar"]
-                    # 是否是大会员
-                    if second["member"]["vip"]["vipStatus"] == 0:
-                        vip = "否"
-                    else:
-                        vip = "是"
-                    # IP属地
-                    try:
-                        IP = second["reply_control"]['location'][5:]
-                    except:
-                        IP = "未知"
-                    # 内容
-                    context = second["content"]["message"]
-                    # 评论时间
-                    reply_time = pd.to_datetime(second["ctime"], unit='s')
-                    # 相关回复数
-                    try:
-                        rereply = second["reply_control"]["sub_reply_entry_text"]
-                        rereply = re.findall(r'\d+', rereply)[0]
-                    except:
-                        rereply = 0
-                    # 点赞数
-                    like = second['like']
-                    # 个性签名
-                    try:
-                        sign = second['member']['sign']
-                    except:
-                        sign = ''
-
-                    # 写入CSV文件
-                    csv_writer.writerow([count, parent, second_rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar])
-            
+                try:
+                    for second in second_comment['data']['replies']:
+                        # 评论数量+1
+                        count += 1
+                        # 上级评论ID
+                        parent=second["parent"]
+                        # 评论ID
+                        second_rpid = second["rpid"]
+                        # 用户ID
+                        uid = second["mid"]
+                        # 用户名
+                        name = second["member"]["uname"]
+                        # 用户等级
+                        level = second["member"]["level_info"]["current_level"]
+                        # 性别
+                        sex = second["member"]["sex"]
+                        # 头像
+                        avatar = second["member"]["avatar"]
+                        # 是否是大会员
+                        if second["member"]["vip"]["vipStatus"] == 0:
+                            vip = "否"
+                        else:
+                            vip = "是"
+                        # IP属地
+                        try:
+                            IP = second["reply_control"]['location'][5:]
+                        except:
+                            IP = "未知"
+                        # 内容
+                        context = second["content"]["message"]
+                        # 评论时间
+                        reply_time = pd.to_datetime(second["ctime"], unit='s')
+                        # 相关回复数
+                        try:
+                            rereply = second["reply_control"]["sub_reply_entry_text"]
+                            rereply = re.findall(r'\d+', rereply)[0]
+                        except:
+                            rereply = 0
+                        # 点赞数
+                        like = second['like']
+                        # 个性签名
+                        try:
+                            sign = second['member']['sign']
+                        except:
+                            sign = ''
+                        
+                        # 写入CSV文件
+                        csv_writer.writerow([count, parent, second_rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar])
+                except:
+                    continue
 
 
     # 下一页的pageID
@@ -197,11 +220,14 @@ def start(bv, oid, pageID, count, csv_writer, is_second):
 
 if __name__ == "__main__":
 
+    flag = 1
+    # flag为1，说明爬的是普通视频，flag为2，爬的是番剧，flag为3，爬的是动态
 
     # 获取视频bv
-    bv = "BV1ex7VzREZ8"
+    bv = "BV1mXNuziEYw"
     # 获取视频oid和标题
-    oid,title = get_information(bv)
+    oid,title = get_information(bv,flag=flag)
+    
     # 评论起始页（默认为空）
     next_pageID = ''
     # 初始化评论数量
@@ -219,5 +245,4 @@ if __name__ == "__main__":
 
         # 开始爬取
         while next_pageID != 0:
-            bv, oid, next_pageID, count, csv_writer,is_second=start(bv, oid, next_pageID, count, csv_writer,is_second)
-
+            bv, oid, next_pageID, count, csv_writer,is_second=start(bv, oid, next_pageID, count, csv_writer,is_second,flag=flag)
