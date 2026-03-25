@@ -7,6 +7,9 @@ import hashlib
 import urllib
 import time
 import csv
+import random
+
+
 
 # 获取B站的Header
 def get_Header():
@@ -14,7 +17,7 @@ def get_Header():
             cookie=f.read()
     header={
             "Cookie":cookie,
-            "User-Agent":'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0'
+            "User-Agent":'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36 Edg/146.0.0.0'
     }
     return header
 
@@ -22,7 +25,7 @@ def get_Header():
 def get_information(bv,flag):
     # 如果是视频 
     if flag == 1:
-        resp = requests.get(f"https://www.bilibili.com/video/{bv}/?p=14&spm_id_from=pageDriver&vd_source=cd6ee6b033cd2da64359bad72619ca8a",headers=get_Header())
+        resp = requests.get(f"https://www.bilibili.com/video/{bv}",headers=get_Header())
     # 如果是番剧
     elif flag == 2:
         resp = requests.get(f"https://www.bilibili.com/bangumi/play/{bv}",headers=get_Header())
@@ -34,6 +37,7 @@ def get_information(bv,flag):
     # 提取视频oid
         obj = re.compile(f'"aid":(?P<id>.*?),"bvid":"{bv}"')
         oid = obj.search(resp.text).group('id')
+
     elif flag == 2:
     # 番剧的oid
         oid = re.findall(r'aid":(.+?),',resp.text)[0]
@@ -48,7 +52,7 @@ def get_information(bv,flag):
     except:
         title = "未识别"
 
-    return oid,title
+    return oid, title
 
 # MD5加密
 def md5(code):
@@ -86,20 +90,16 @@ def start(bv, oid, pageID, count, csv_writer, is_second, flag):
         code = f"mode={mode}&oid={oid}&pagination_str={urllib.parse.quote(pagination_str, safe='')}&plat={plat}&seek_rpid=&type={type}&web_location={web_location}&wts={wts}" + 'ea1db124af3c7062474693fa704f4ff8'
         w_rid = md5(code)
         url = f"https://api.bilibili.com/x/v2/reply/wbi/main?oid={oid}&type={type}&mode={mode}&pagination_str={urllib.parse.quote(pagination_str, safe=':')}&plat=1&seek_rpid=&web_location=1315875&w_rid={w_rid}&wts={wts}"
-    
 
     comment = requests.get(url=url, headers=get_Header()).content.decode('utf-8')
     comment = json.loads(comment)
 
     for reply in comment['data']['replies']:
+
         # 评论数量+1
         count += 1
-
-        if count % 1000 ==0:
-            time.sleep(20)
-
         # 上级评论ID
-        parent=reply["parent"]
+        parent = reply["parent"]
         # 评论ID
         rpid = reply["rpid"]
         # 用户ID
@@ -134,23 +134,43 @@ def start(bv, oid, pageID, count, csv_writer, is_second, flag):
             rereply = 0
         # 点赞数
         like = reply['like']
-
         # 个性签名
         try:
             sign = reply['member']['sign']
         except:
             sign = ''
+        # 当前账号是否给评论点赞
+        if reply['action'] == 1:
+            action = "是"
+        else:
+            action = "否"
+        # UP主是否点赞
+        if reply["up_action"]["like"] == True:
+            up_action = "是"
+        else:
+            up_action = "否"
+        # UP主是否回复
+        if reply["up_action"]["reply"] == True:
+            up_reply = "是"
+        else:
+            up_reply = "否"
+
         # 写入CSV文件
-        csv_writer.writerow([count, parent, rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar])
+        csv_writer.writerow([count, parent, rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar, action, up_action, up_reply])
+
+        # 每爬取1000条评论就冷却30~60秒，避免反爬机制
+        if count % 1000 == 0:
+            cool_down(count, 30, 60, 2)
 
         # 二级评论(如果开启了二级评论爬取，且该评论回复数不为0，则爬取该评论的二级评论)
-        if is_second and rereply !=0:
+        if is_second and rereply != 0:
             for page in range(1,(rereply-1)//10+2):
                 second_url=f"https://api.bilibili.com/x/v2/reply/reply?oid={oid}&type=1&root={rpid}&ps=10&pn={page}&web_location=333.788"
                 second_comment=requests.get(url=second_url,headers=get_Header()).content.decode('utf-8')
                 second_comment=json.loads(second_comment)
 
                 for second in second_comment['data']['replies']:
+
                     # 评论数量+1
                     count += 1
                     # 上级评论ID
@@ -194,11 +214,31 @@ def start(bv, oid, pageID, count, csv_writer, is_second, flag):
                         sign = second['member']['sign']
                     except:
                         sign = ''
-                    
+                    # 当前账号是否给评论点赞
+                    if reply['action'] == 1:
+                        action = "是"
+                    else:
+                        action = "否"
+                    # UP主是否点赞
+                    if reply["up_action"]["like"] == True:
+                        up_action = "是"
+                    else:
+                        up_action = "否"
+                    # UP主是否回复
+                    if reply["up_action"]["reply"] == True:
+                        up_reply = "是"
+                    else:
+                        up_reply = "否"
+
                     # 写入CSV文件
-                    csv_writer.writerow([count, parent, second_rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar])
+                    csv_writer.writerow([count, parent, second_rpid, uid, name, level, sex, context, reply_time, rereply, like, sign, IP, vip, avatar, action, up_action, up_reply])
 
+                    # 每爬取1000条评论就冷却30~60秒，避免反爬机制
+                    if count % 1000 == 0:
+                        cool_down(count, 30, 60, 2)
 
+                # 调试用途，记录并输出当前爬取评论数
+                # print(count)
 
     # 下一页的pageID
     try:
@@ -208,13 +248,24 @@ def start(bv, oid, pageID, count, csv_writer, is_second, flag):
 
     # 判断是否是最后一页了
     if next_pageID == 0:
-        print(f"评论爬取完成！总共爬取{count}条。")
-        return bv, oid, next_pageID, count, csv_writer,is_second
-    # 如果不是最后一页，则停0.5s（避免反爬机制）
+        print(f"评论爬取完成！总共爬取 {count} 条。")
+        return bv, oid, next_pageID, count, csv_writer, is_second
+    # 如果不是最后一页，则停1~10s（避免反爬机制）
     else:
-        time.sleep(0.5)
-        print(f"当前爬取{count}条。")
-        return bv, oid, next_pageID, count, csv_writer,is_second
+        print(f"当前已爬取 {count} 条。")
+        cool_down(count,1,10,1)
+        return bv, oid, next_pageID, count, csv_writer, is_second
+
+# 冷却函数
+def cool_down(count, min_sec, max_sec, cd_flag):
+    if cd_flag == 1:
+        page_cd = random.uniform(min_sec, max_sec)
+        print(f"爬虫已进入下一页，为避免触发反爬机制，暂停 {page_cd} 秒...")
+        time.sleep(page_cd)
+    elif cd_flag == 2:
+        comment_cd = random.uniform(min_sec, max_sec)
+        print(f"已爬取 {count} 条评论，为避免触发反爬机制，暂停 {comment_cd} 秒...")
+        time.sleep(comment_cd)
 
 if __name__ == "__main__":
 
@@ -222,25 +273,24 @@ if __name__ == "__main__":
     # flag为1，说明爬的是普通视频，flag为2，爬的是番剧，flag为3，爬的是动态
 
     # 获取视频bv
-    bv = "BV19iPczHEvr"
+    bv = "BV1MT4y1M7eJ"
     # 获取视频oid和标题
-    oid,title = get_information(bv,flag=flag)
+    oid,title = get_information(bv, flag=flag)
     
     # 评论起始页（默认为空）
     next_pageID = ''
     # 初始化评论数量
     count = 0
 
-
     # 是否开启二级评论爬取，默认开启
     is_second = True
 
-    print(f"当前爬取：《{title}》")
+    print(f"当前爬取目标：{title} - {bv}")
     # 创建CSV文件并写入表头
-    with open(f'{title[:12]}_评论.csv', mode='w', newline='', encoding='utf-8-sig') as file:
+    with open(f'{title[:10]}...的评论_{bv}.csv', mode='w', newline='', encoding='utf-8-sig') as file:
         csv_writer = csv.writer(file)
-        csv_writer.writerow(['序号', '上级评论ID','评论ID', '用户ID', '用户名', '用户等级', '性别', '评论内容', '评论时间', '回复数', '点赞数', '个性签名', 'IP属地', '是否是大会员', '头像'])
+        csv_writer.writerow(['序号', '上级评论ID','评论ID', '用户ID', '用户名', '用户等级', '性别', '评论内容', '评论时间', '回复数', '点赞数', '个性签名', 'IP属地', '是否为大会员', '头像', '当前账号是否点赞', 'UP主是否点赞', 'UP主是否回复'])
 
         # 开始爬取
         while next_pageID != 0:
-            bv, oid, next_pageID, count, csv_writer,is_second=start(bv, oid, next_pageID, count, csv_writer,is_second,flag=flag)
+            bv, oid, next_pageID, count, csv_writer,is_second = start(bv, oid, next_pageID, count, csv_writer, is_second, flag=flag)
